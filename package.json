@@ -3,6 +3,7 @@
     "@neondatabase/serverless": "^1.0.2",
     "@prisma/client": "^6.9.0",
     "altcha": "^2.3.0",
+    "altcha-lib": "^1.4.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

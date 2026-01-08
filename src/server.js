@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import { createChallenge, verifySolution } from 'altcha';
+import { createChallenge, verifySolution } from 'altcha-lib';
 
 dotenv.config();
 
@@ -20,7 +20,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-const sanitize = (str, maxLengtht = 100) => {
+const sanitize = (str, maxLength = 100) => {
   if (!str || str === 'none') return 'none';
   return String(str).trim().slice(0, maxLength);
 };
@@ -56,7 +56,7 @@ app.get('/auth/challenge', (req, res) => {
       signature: challenge.signature
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create challenge', details: e.message });
+    res.status(500).json({ error: 'Failed to create challenge', details: error.message });
   }
 });
 
@@ -163,7 +163,7 @@ app.post('/auth/login', async (req, res) => {
       user: { id: user.id, email: user.email }
     });
   } catch (error) {
-    res.status(500).json({ error: 'Login failed', details: e.message });
+    res.status(500).json({ error: 'Login failed', details: error.message });
   }
 });
 
@@ -180,7 +180,7 @@ app.get('/gym', authMiddleware, async (req, res) => {
       timezone: gym.timezone
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch gym', details: e.message });
+    res.status(500).json({ error: 'Failed to fetch gym', details: error.message });
   }
 });
 
@@ -207,13 +207,17 @@ app.put('/gym', authMiddleware, async (req, res) => {
 
 app.get('/members', authMiddleware, async (req, res) => {
   try {
-    const gym = await prisma.gym.findUnique({ where: { userId: req.userId } });
+    const gym = await prisma.gym.findUnique({
+      where: { userId: req.userId }
+    });
     if (!gym) return res.status(404).json({ error: 'Gym not found' });
-    
+
     const timezone = req.headers['x-timezone'] || gym.timezone || 'UTC';
     const now = new Date();
-    const todayStr = new Date(now.toLocaleString('en-US', { timeZone: timezone })).toISOString().split('T')[0];
-    
+    const todayStr = new Date(
+      now.toLocaleString('en-US', { timeZone: timezone })
+    ).toISOString().split('T')[0];
+
     const members = await prisma.member.findMany({
       where: { gymId: gym.id },
       include: {
@@ -223,17 +227,19 @@ app.get('/members', authMiddleware, async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    
+
     let active = 0, expired = 0, expiresSoon = 0;
-    
+
     const membersList = members.map(m => {
       let status = 'active';
       let daysLeft = null;
-      
+
       if (m.plan !== 'lifetime' && m.expiryDate) {
-        const daysRemaining = Math.ceil((new Date(m.expiryDate) - now) / (1000 * 60 * 60 * 24));
+        const daysRemaining = Math.ceil(
+          (new Date(m.expiryDate) - now) / (1000 * 60 * 60 * 24)
+        );
         daysLeft = daysRemaining;
-        
+
         if (daysRemaining < 0) {
           status = 'expired';
           expired++;
@@ -243,40 +249,46 @@ app.get('/members', authMiddleware, async (req, res) => {
         } else {
           active++;
         }
-        
-        return {
-          id: m.id,
-          name: m.name,
-          plan: m.plan,
-          status,
-          duration: daysLeft,
-          isAttended: m.attendance.length > 0,
-          timestamp: m.createdAt,
-          details: {
-            email: m.email,
-            phone: m.phone,
-            birthday: m.birthday,
-            note: m.note
-          }
-        };
-      });
-      
-      res.json({
-        membersCount: {
-          all: members.length,
-          active,
-          expiresSoon,
-          expired
+      } else {
+        active++;
+      }
+
+      return {
+        id: m.id,
+        name: m.name,
+        plan: m.plan,
+        status,
+        duration: daysLeft,
+        isAttended: m.attendance.length > 0,
+        timestamp: m.createdAt,
+        details: {
+          email: m.email,
+          phone: m.phone,
+          birthday: m.birthday,
+          note: m.note
         }
-      }),
-      membersList
-    )};
-  } catch(error) {
-    res.status(500).json({ error: 'Failed to fetch members', details: error.message });
+      };
+    });
+
+    res.json({
+      membersCount: {
+        all: members.length,
+        active,
+        expiresSoon,
+        expired
+      },
+      members: membersList
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch members',
+      details: error.message
+    });
   }
 });
 
-app.post('/members' authMiddleware, async (req, res) => {
+app.post('/members', authMiddleware, async (req, res) => {
   try {
     const { fullname, email, phone, birthday, note, plans } = req.body;
     
@@ -318,16 +330,16 @@ app.post('/members' authMiddleware, async (req, res) => {
         email: email && email !== 'none' ? sanitize(email) : 'none',
         phone: phone && phone !== 'none' ? sanitize(phone, 20) : 'none',
         birthday: birthdayISO,
-        note: none && none !== 'none' ? sanitize(note, 500) : 'none',
+        note: note && note !== 'none' ? sanitize(note, 500) : 'none',
         plan: plans,
         expiryDate,
-        createdAt: Date.now()
+        createdAt: new Date()
       }
     });
     
     res.json({ success: true, memberId: member.id });
   } catch(error) {
-    res.status(500).json({ error: 'Failed to create member', details: e.message });
+    res.status(500).json({ error: 'Failed to create member', details: error.message });
   }
 })
 
@@ -358,7 +370,7 @@ app.put('/members/:id', authMiddleware, async (req, res) => {
         email: email && email !== 'none' ? sanitize(email) : 'none',
         phone: phone && phone !== 'none' ? sanitize(phone, 20) : 'none',
         birthday: birthdayISO,
-        note: note && note !== 'none' ? sanitize(note, 500) : 'none';
+        note: note && note !== 'none' ? sanitize(note, 500) : 'none'
       }
     });
     
@@ -403,7 +415,7 @@ app.post('/members/:id/renew', authMiddleware, async (req, res) => {
     
     res.json({ success: true, message: 'Membership renewed' });
   } catch(error) {
-    res.status(500).json({ error: 'Failed to renew membership', details: e.message });
+    res.status(500).json({ error: 'Failed to renew membership', details: error.message });
   }
 });
 
@@ -430,20 +442,20 @@ app.post('/members/:id/attendance', authMiddleware, async (req, res) => {
   try {
     const memberId = req.params.id;
     
-    const gyn = await prisma.gym.findUnique({
+    const gym = await prisma.gym.findUnique({
       where: { userId: req.userId }
     });
     
     if (!gym) return res.status(404).json({ error: 'Gym not found' });
     
-    const timezone = req.headers[x-timezone] || gym.timezone || 'UTC';
-    const mow = new Date();
+    const timezone = req.headers['x-timezone'] || gym.timezone || 'UTC';
+    const now = new Date();
     const todayStr = new Date(now.toLocaleString('en-US', { timeZone: timezone })).toISOString().split('T')[0];
     const todayDate = new Date(todayStr);
     
     const existing = await prisma.attendance.findFirst({
       where: {
-        memberid,
+        memberId,
         date: todayDate
       }
     });
@@ -467,34 +479,31 @@ app.post('/members/:id/attendance', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/' (req, res) => {
+app.get('/', (req, res) => {
   res.json({
     status: 'Online'
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log('Listening on port ' + PORT);
 });
 
 process.on("unhandledRejection", (error) => {
   console.log(`Unhandled Rejection: ${error}`);
   server.close(async () => {
-    await disconnectDB();
     process.exit(1);
   });
 });
 
 process.on("uncaughtExeption", async (error) => {
   console.log(`Uncaught Exeption: ${error}`);
-  await disconnectDB();
   process.exit(1);
 });
 
 process.on("SIGTERM", async () => {
   console.log("SIGTERM, Shutting Down");
   server.close(async () => {
-    await disconnectDB();
     process.exit(0);
   });
 });
