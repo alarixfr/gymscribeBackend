@@ -10,12 +10,61 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url = env("DATABASE_URL")
 }
 
-model user {
+model User {
   id String @id @default(uuid())
   email String @unique
   password String
+  createdAt BigInt @map("created_at")
+  gym Gym?
   
-  createdAt DateTime @default(now())
+  @@map("users")
+}
+
+model Gym {
+  id String @id @default(uuid())
+  userId String @unique @map("user_id")
+  name String @default("none")
+  owner String @default("none")
+  description String @default("none")
+  address String @default("none")
+  timezone String @default("UTC")
+  createdAt BigInt @default(0) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  members Member[]
+  attendance Attendance[]
+  
+  @@map("gyms")
+}
+
+model Member {
+  id String @id @default(uuid())
+  gymId String @map("gym_id")
+  name String
+  email String @default("none")
+  phone String @default("none")
+  birthday String @default("none")
+  note String @default("none")
+  plan String
+  expiryDate DateTime? @map("expiry_date")
+  createdAt BigInt @map("created_at")
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  attendance Attendance[]
+  
+  @@map("members")
+}
+
+model Attendance {
+  id String @id @default(uuid())
+  gymId String @map("gym_id")
+  memberId String @map("member_id")
+  date DateTime @db.Date
+  timestamp BigInt
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  
+  @@unique([memberId, date])
+  @@map("attendance")
 }
