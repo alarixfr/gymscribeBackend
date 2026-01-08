@@ -84,8 +84,89 @@ app.post('/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
     
-  } catch (error) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
     
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const timestamp = Date.now();
+    
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        createdAt: timestamp,
+        gym: {
+          create: {
+            name: 'none',
+            owner: 'none',
+            description: 'none',
+            address: 'none',
+            timezone: 'UTC',
+            createdAt: timestamp
+          }
+        }
+      }
+    });
+    
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      success: true,
+      token,
+      user: { id: user.id, email: user.email }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: 'Registration failed', details: error.message });
+  }
+});
+
+app.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password, altchaPayload } = req.body;
+    
+    if (!altchaPayload) {
+      return res.status(400).json({ error: 'Captcha required' });
+    }
+    
+    const verified = await verifySolution(altchaPayload, ALTCHA_HMAC_KEY);
+    if (!verified) {
+      return res.status(400).json({ error: 'Invalid captcha. Please try again.' });
+    }
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+    
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+  
+    res.json({
+      success: true,
+      token,
+      user: { id: user.id, email: user.email }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Login failed', details: e.message });
   }
 });
 
