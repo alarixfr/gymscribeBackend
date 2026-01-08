@@ -28,7 +28,7 @@ const sanitize = (str, maxLength = 100) => {
 const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer', '');
+  const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -39,9 +39,9 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-app.get('/auth/challenge', (req, res) => {
+app.get('/auth/challenge', async (req, res) => {
   try {
-    const challenge = createChallenge({
+    const challenge = await createChallenge({
       hmacKey: ALTCHA_HMAC_KEY,
       maxNumber: 100000,
       saltLength: 12,
@@ -277,7 +277,7 @@ app.get('/members', authMiddleware, async (req, res) => {
         expiresSoon,
         expired
       },
-      members: membersList
+      membersList: membersList
     });
 
   } catch (error) {
@@ -333,7 +333,7 @@ app.post('/members', authMiddleware, async (req, res) => {
         note: note && note !== 'none' ? sanitize(note, 500) : 'none',
         plan: plans,
         expiryDate,
-        createdAt: new Date()
+        createdAt: Date.now()
       }
     });
     
@@ -341,7 +341,7 @@ app.post('/members', authMiddleware, async (req, res) => {
   } catch(error) {
     res.status(500).json({ error: 'Failed to create member', details: error.message });
   }
-})
+});
 
 app.put('/members/:id', authMiddleware, async (req, res) => {
   try {
@@ -496,8 +496,8 @@ process.on("unhandledRejection", (error) => {
   });
 });
 
-process.on("uncaughtExeption", async (error) => {
-  console.log(`Uncaught Exeption: ${error}`);
+process.on("uncaughtException", async (error) => {
+  console.log(`Uncaught Exception: ${error}`);
   process.exit(1);
 });
 
