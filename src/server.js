@@ -5,9 +5,6 @@ import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { createChallenge, verifySolution } from 'altcha';
-import { connectDB, disconnectDB } from './config/db.js';
-
-import serverRoutes from './routes/serverRoutes.js';
 
 dotenv.config();
 
@@ -427,6 +424,53 @@ app.delete('/members/:id', authMiddleware, async (req, res) => {
   } catch(error) {
     res.status(500).json({ error: 'Failed to delete member', details: error.message });
   }
+});
+
+app.post('/members/:id/attendance', authMiddleware, async (req, res) => {
+  try {
+    const memberId = req.params.id;
+    
+    const gyn = await prisma.gym.findUnique({
+      where: { userId: req.userId }
+    });
+    
+    if (!gym) return res.status(404).json({ error: 'Gym not found' });
+    
+    const timezone = req.headers[x-timezone] || gym.timezone || 'UTC';
+    const mow = new Date();
+    const todayStr = new Date(now.toLocaleString('en-US', { timeZone: timezone })).toISOString().split('T')[0];
+    const todayDate = new Date(todayStr);
+    
+    const existing = await prisma.attendance.findFirst({
+      where: {
+        memberid,
+        date: todayDate
+      }
+    });
+    
+    if (existing) {
+      await prisma.attendance.delete({ where: { id: existing.id } });
+      res.json({ success: true, action: 'removed', isAttended: false });
+    } else {
+      await prisma.attendance.create({
+        data: {
+          gymId: gym.id,
+          memberId,
+          date: todayDate,
+          timestamp: Date.now()
+        }
+      });
+      res.json({ success: true, action: 'added', isAttended: true })
+    }
+  } catch(error) {
+    res.status(500).json({ error: 'Failed to toggle attendance', details: error.message });
+  }
+});
+
+app.get('/' (req, res) => {
+  res.json({
+    status: 'Online'
+  });
 });
 
 app.listen(PORT, () => {
