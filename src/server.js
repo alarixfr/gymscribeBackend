@@ -14,10 +14,18 @@ const PORT = 8080;
 
 const ALTCHA_HMAC_KEY = process.env.ALTCHA_SECRET;
 
-app.use(cors({
+app.options('*', cors({
   origin: ['https://gymscribe.vercel.app'],
   credentials: true
 }));
+
+app.use(cors({
+  origin: ['https://gymscribe.vercel.app'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-timezone']
+}));
+
 app.use(express.json());
 
 const sanitize = (str, maxLength = 100) => {
