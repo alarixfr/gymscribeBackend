@@ -14,6 +14,7 @@ const PORT = 8080;
 
 const ALTCHA_HMAC_KEY = process.env.ALTCHA_SECRET;
 
+/*
 app.use(cors({
   origin: ['https://gymscribe.vercel.app'],
   credentials: true,
@@ -25,6 +26,19 @@ app.options('/auth/challenge', cors({
   origin: ['https://gymscribe.vercel.app'],
   credentials: false
 }));
+*/
+
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://gymscribe.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-timezone');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  
+  next();
+});
 
 app.use(express.json());
 
