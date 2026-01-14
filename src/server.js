@@ -28,10 +28,6 @@ app.options('/auth/challenge', cors({
 }));
 */
 
-BigInt.prototype.toJSON = function() {
-  return this.toString();
-};
-
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -113,21 +109,18 @@ app.post('/auth/register', async (req, res) => {
     }
     
     const hashedPassword = await bcrypt.hash(password, 10);
-    const timestamp = Date.now();
     
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        createdAt: timestamp,
         gym: {
           create: {
             name: 'none',
             owner: 'none',
             description: 'none',
             address: 'none',
-            timezone: 'UTC',
-            createdAt: timestamp
+            timezone: 'UTC'
           }
         }
       }
@@ -358,8 +351,7 @@ app.post('/members', authMiddleware, async (req, res) => {
         birthday: birthdayISO,
         note: note && note !== 'none' ? sanitize(note, 500) : 'none',
         plan: plans,
-        expiryDate,
-        createdAt: Date.now()
+        expiryDate
       }
     });
     
@@ -494,8 +486,7 @@ app.post('/members/:id/attendance', authMiddleware, async (req, res) => {
         data: {
           gymId: gym.id,
           memberId,
-          date: todayDate,
-          timestamp: Date.now()
+          date: todayDate
         }
       });
       res.json({ success: true, action: 'added', isAttended: true })
