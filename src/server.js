@@ -49,6 +49,29 @@ const sanitize = (str, maxLength = 100) => {
 
 const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+const validatePhone = (phone) => {
+  if (!phone || phone === 'none') return true;
+  return /^[\d\s\-\+\(/)]+$/.test(phone) && phone.length > 7 && phone.length < 20;
+};
+
+const validateTimezone = (tz) => {
+  if (!tz) return true;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const timezoneMiddleware = (req, res, next) => {
+  const timezone = req.headers['x-timezone'];
+  if (timezone && !validateTimezone(timezone)) {
+    return res.status(400).json({ error: 'Invalid timezone' });
+  }
+  next();
+};
+
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -224,7 +247,7 @@ app.put('/gym', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/members', authMiddleware, async (req, res) => {
+app.get('/members', authMiddleware, timezoneMiddleware, async (req, res) => {
   try {
     const gym = await prisma.gym.findUnique({
       where: { userId: req.userId }
@@ -323,6 +346,14 @@ app.post('/members', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid data' });
     }
     
+    if (email && email === 'none' && !validateEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    if (phone && phone === 'none' && !validatePhone(phone)) {
+      return res.status(400).json({ error: 'Invalid phone format' });
+    }
+    
     let expiryDate = null;
     if (plans === 'monthly') {
       expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -368,6 +399,18 @@ app.put('/members/:id', authMiddleware, async (req, res) => {
     
     const gym = await prisma.gym.findUnique({ where: { userId: req.userId } });
     if (!gym) return res.status(404).json({ error: 'Gym not found' });
+    
+    if (!fullname || fullname.trim() === '') {
+      return res.status(400).json({ error: 'Full name is required' });
+    }
+    
+    if (email && email === 'none' && !validateEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    if (phone && phone === 'none' && !validatePhone(phone)) {
+      return res.status(400).json({ error: 'Invalid phone format' });
+    }
     
     let birthdayISO = 'none';
     if (birthday && birthday !== 'none') {
@@ -446,8 +489,16 @@ app.delete('/members/:id', authMiddleware, async (req, res) => {
     });
     if (!gym) return res.status(404).json({ error: 'Gym not found' });
     
-    await prisma.member.deleteMany({
+    const member = await prisma.member.findFirst({
       where: { id: memberId, gymId: gym.id }
+    });
+    
+    
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found'});
+    }
+    await prisma.member.delete({
+      where: { id: memberId }
     });
     
     res.json({ success: true, message: 'Member deleted' });
@@ -456,7 +507,7 @@ app.delete('/members/:id', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/members/:id/attendance', authMiddleware, async (req, res) => {
+app.post('/members/:id/attendance', authMiddleware, timezoneMiddleware, async (req, res) => {
   try {
     const memberId = req.params.id;
     
@@ -465,6 +516,14 @@ app.post('/members/:id/attendance', authMiddleware, async (req, res) => {
     });
     
     if (!gym) return res.status(404).json({ error: 'Gym not found' });
+    
+    const member = await prisma.member.findFirst({
+      where: { id: memberId, gymId: gym.id }
+    });
+    
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
     
     const timezone = req.headers['x-timezone'] || gym.timezone || 'UTC';
     const now = new Date();
@@ -482,14 +541,26 @@ app.post('/members/:id/attendance', authMiddleware, async (req, res) => {
       await prisma.attendance.delete({ where: { id: existing.id } });
       res.json({ success: true, action: 'removed', isAttended: false });
     } else {
-      await prisma.attendance.create({
-        data: {
-          gymId: gym.id,
-          memberId,
-          date: todayDate
+      try {
+        await prisma.attendance.create({
+          data: {
+            gymId: gym.id,
+            memberId,
+            date: todayDate
+          }
+        });
+        res.json({ success: true, action: 'added', isAttended: true });
+      } catch (createError) {
+        if (createError.code === 'P2002') {
+          res.json({
+            success: true,
+            action: 'already_exists',
+            isAttended: true
+          });
+        } else {
+          throw createError;
         }
-      });
-      res.json({ success: true, action: 'added', isAttended: true })
+      }
     }
   } catch(error) {
     res.status(500).json({ error: 'Failed to toggle attendance', details: error.message });
