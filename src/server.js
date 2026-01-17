@@ -632,11 +632,11 @@ app.put('/storage/journals', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Journals must be an array' });
     }
     
-    jf (journals.length > 100) {
+    if (journals.length > 100) {
       return res.status(400).json({ error: 'Maximum 100 journals limit reached' });
     }
     
-    const sanitizedJournals = journals.map(sanitizedJournals);
+    const sanitizedJournals = journals.map(sanitizeJournal);
     
     await prisma.gym.update({
       where: { userId: req.userId },
@@ -674,6 +674,108 @@ app.delete('/storage/journals', authMiddleware, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: 'Failed to reset journals',
+      details: error.message
+    });
+  }
+});
+
+app.get('/storage/attendance', authMiddleware, async (req, res) => {
+  try {
+    const gym = await prisma.gym.findUnique({
+      where: { userId: req.userId }
+    });
+    
+    if (!gym) {
+      return res.status(404).json({ error: 'Gym not found' });
+    }
+    
+    const defaultAttendance = {
+      day1: { attended: 0, absence: 0 },
+      day2: { attended: 0, absence: 0 },
+      day3: { attended: 0, absence: 0 },
+      day4: { attended: 0, absence: 0 },
+      day5: { attended: 0, absence: 0 },
+      day6: { attended: 0, absence: 0 },
+      day7: { attended: 0, absence: 0 }
+    };
+    
+    const attendance = gym.attendanceHistory
+      ? JSON.parse(gym.attendanceHistory)
+      : defaultAttendance;
+      
+    res.json({
+      success: true,
+      attendance
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to load attendance',
+      details: error.message
+    });
+  }
+});
+
+app.put('/storage/attendance', authMiddleware, async (req, res) => {
+  try {
+    const { attendance } = req.body;
+    
+    if (!attendance || typeof attendance !== 'object') {
+      return res.status(400).json({
+        error: 'Invalid attendance data'
+      });
+    }
+    
+    if (!validateAttendance(attendance)) {
+      return res.status(400).json({
+        error: 'Invalid attendance structure'
+      });
+    }
+    
+    await prisma.gym.update({
+      where: { userId: req.userId },
+      data: {
+        attendanceHistory: JSON.stringify(attendance)
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: 'Attendance saved'
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to save attendance',
+      details: error.message
+    });
+  }
+});
+
+app.delete('/storage/attendance', authMiddleware, async (req, res) => {
+  try {
+    const defaultAttendance = {
+      day1: { attended: 0, absence: 0 },
+      day2: { attended: 0, absence: 0 },
+      day3: { attended: 0, absence: 0 },
+      day4: { attended: 0, absence: 0 },
+      day5: { attended: 0, absence: 0 },
+      day6: { attended: 0, absence: 0 },
+      day7: { attended: 0, absence: 0 }
+    };
+    
+    await prisma.gym.update({
+      where: { userId: req.userId },
+      data: {
+        attendanceHistory: JSON.stringify(defaultAttendance)
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: 'Attendance reset'
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to reset attendance',
       details: error.message
     });
   }
