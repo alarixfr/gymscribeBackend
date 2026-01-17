@@ -31,6 +31,8 @@ model Gym {
   description String @default("none")
   address String @default("none")
   timezone String @default("UTC")
+  journals String? @db.Text
+  attendanceHistory String? @db.Text @map("attendance_history")
   createdAt DateTime @default(now()) @map("created_at")
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   members Member[]

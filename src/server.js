@@ -47,6 +47,39 @@ const sanitize = (str, maxLength = 100) => {
   return String(str).trim().slice(0, maxLength);
 };
 
+const sanitizeJournal = (journal) => {
+  return {
+    id: String(journal.id || '').slice(0, 100),
+    title: String(journal.title || '').trim().slice(0, 100),
+    desc: String(journal.desc || '').trim().slice(0, 100),
+    timestamp: journal.timestamp || Date.now()
+  };
+};
+
+const validateAttendance = (data) => {
+  const validStructure = {
+    day1: { attended: 0, absence: 0},
+    day2: { attended: 0, absence: 0},
+    day3: { attended: 0, absence: 0},
+    day4: { attended: 0, absence: 0},
+    day5: { attended: 0, absence: 0},
+    day6: { attended: 0, absence: 0},
+    day7: { attended: 0, absence: 0}
+  };
+  
+  for (const day in validStructure) {
+    if (
+      !data[day] ||
+      typeof data[day].attended !== 'number' ||
+      typeof data[day].absence !== 'number'
+    ) {
+      return false;
+    }
+  }
+  
+  return true;
+};
+
 const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const validatePhone = (phone) => {
@@ -564,6 +597,85 @@ app.post('/members/:id/attendance', authMiddleware, timezoneMiddleware, async (r
     }
   } catch(error) {
     res.status(500).json({ error: 'Failed to toggle attendance', details: error.message });
+  }
+});
+
+app.get('/storage/journals', authMiddleware, async (req, res) => {
+  try {
+    const gym = await prisma.gym.findUnique({
+      where: { userId: req.userId }
+    });
+    
+    if (!gym) {
+      return res.status(404).json({ error: 'Gym not found' });
+    }
+    
+    const journals = gym.journals ? JSON.parse(gym.journals) : [];
+    
+    res.json({
+      success: true,
+      journals
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to load journals',
+      details: error.message
+    });
+  }
+});
+
+app.put('/storage/journals', authMiddleware, async (req, res) => {
+  try {
+    const { journals } = req.body;
+    
+    if (!Array.isArray(journals)) {
+      return res.status(400).json({ error: 'Journals must be an array' });
+    }
+    
+    jf (journals.length > 100) {
+      return res.status(400).json({ error: 'Maximum 100 journals limit reached' });
+    }
+    
+    const sanitizedJournals = journals.map(sanitizedJournals);
+    
+    await prisma.gym.update({
+      where: { userId: req.userId },
+      data: {
+        journals: JSON.stringify(sanitizedJournals)
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: 'Journals saved',
+      count: sanitizedJournals.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to save journals',
+      details: error.message
+    });
+  }
+});
+
+app.delete('/storage/journals', authMiddleware, async (req, res) => {
+  try {
+    await prisma.gym.update({
+      where: { userId: req.userId },
+      data: {
+        journals: JSON.stringify([])
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: 'Journals reset'
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to reset journals',
+      details: error.message
+    });
   }
 });
 
