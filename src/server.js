@@ -103,7 +103,7 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-const paramsAuthMiddleware = (req, res, next) => {
+const apiKeyMiddleware = (req, res, next) => {
   const token = res.params.token;
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
@@ -884,15 +884,59 @@ app.get('/v1/gym/:token', apiKeyMiddleware, async (req, res) => {
 });
 
 app.get('/v1/members/:token', apiKeyMiddleware, async (req, res) => {
-  
+  try {
+    
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch members data',
+      details: error.message
+    });
+  }
 });
 
 app.get('/v1/attendance/:token', apiKeyMiddleware, async (req, res) => {
-  
+  try {
+    const gym = prisma.gym.findUnique({
+      where: { userId: req.userId }
+    });
+    
+    if (!gym) {
+      return res.status(404).json({ error: 'Gym not found' })
+    }
+    
+    const defaultAttendance = {
+      day1: { attended: 0, absence: 0 },
+      day2: { attended: 0, absence: 0 },
+      day3: { attended: 0, absence: 0 },
+      day4: { attended: 0, absence: 0 },
+      day5: { attended: 0, absence: 0 },
+      day6: { attended: 0, absence: 0 },
+      day7: { attended: 0, absence: 0 },
+    };
+    
+    const attendance = gym.attendanceHistory ? JSON.parse(gym.attendanceHistory) : defaultAttendance;
+    
+    res.json({
+      success: true,
+      attendance
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch attendance data',
+      details: error.message
+    });
+  }
 });
 
 app.get('/stats', authMiddleware, async (req, res) => {
-  
+  try {
+    
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch stats',
+      details: error.message
+    })
+  }
 });
 
 app.get('/', (req, res) => {
