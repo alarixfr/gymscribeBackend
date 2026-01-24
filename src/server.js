@@ -103,6 +103,18 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const paramsAuthMiddleware = (req, res, next) => {
+  const token = res.params.token;
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token'});
+  }
+};
+
 app.get('/auth/challenge', async (req, res) => {
   try {
     const challenge = await createChallenge({
@@ -833,6 +845,54 @@ app.delete('/storage/attendance', authMiddleware, async (req, res) => {
       details: error.message
     });
   }
+});
+
+app.post('/api/generate', authMiddleware, async (req, res) => {
+  
+});
+
+app.delete('/api/revoke', authMiddleware, async (req. res) => {
+  
+});
+
+app.get('/v1/gym/:token', apiKeyMiddleware, async (req, res) => {
+  try {
+    const gym = await prisma.gym.findUnique({
+      where: {
+        userId: req.userId,
+      },
+    });
+    
+    if (!gym) {
+      return res.status(404).json({ error: 'Gym not found' })
+    }
+    
+    res.json({
+      id: gym.id,
+      name: gym.name,
+      owner: gym.owner,
+      description: gym.description,
+      address: gym.address,
+      timezone: gym.timezone
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch gym data',
+      details: error.message
+    });
+  }
+});
+
+app.get('/v1/members/:token', apiKeyMiddleware, async (req, res) => {
+  
+});
+
+app.get('/v1/attendance/:token', apiKeyMiddleware, async (req, res) => {
+  
+});
+
+app.get('/stats', authMiddleware, async (req, res) => {
+  
 });
 
 app.get('/', (req, res) => {
