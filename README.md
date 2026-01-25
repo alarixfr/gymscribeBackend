@@ -1,5 +1,10 @@
 # GYMSCRIBE BACKEND
 This is the backend for gymscribe, an open source gym membership management app
+
+<img src="https://raw.githubusercontent.com/alarixfr/gymscribe/refs/heads/main/assets/img/GymscribeBanner.png" width="100%" alt="Gymscribe Banner">
+<img src="https://hackatime-badge.hackclub.com/U09EB9V2NBB/gymscribeBackend" alt="Hakatime Stats">
+
+# FRONTEND:
 https://github.com/alarixfr/gymscribe
 
 # HOW TO RUN THE SERVER
@@ -67,7 +72,6 @@ you can host this server locally or use a vps and edit the frontend to match the
 <a href="https://flavortown.hackclub.com/projects/32">https://flavortown.hackclub.com/projects/32</a>
 <hr>
 <img style="width:30%;" src="https://raw.githubusercontent.com/hackclub/flavortown/refs/heads/main/app/assets/images/orpheus_sprites/12.png" alt="Flavortown">
-<br>
 <p style="font-size:2rem">Welcome! :&#41</p>
 <h2>If you are reviewing this project:</h2>
 <p>there are some stuff you might want to know,<p/>

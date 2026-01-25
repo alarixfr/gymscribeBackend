@@ -1,6 +1,5 @@
 import express from 'express';
 import os from 'os';
-import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
@@ -32,7 +31,7 @@ let statsCacheTime = null;
 setInterval(() => {
   const now = Date.now();
   for (const [key, value] of rateLimitStore.entries()) {
-    if (now - value.resetTime > 60000) {
+    if (now - value.resetTime > 0) {
       rateLimitStore.delete(key);
     }
   }
@@ -104,7 +103,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
 app.use(
   rateLimit({
@@ -349,7 +348,7 @@ app.post('/auth/change-password', authMiddleware, async (req, res) => {
     
     if (newPassword.length > 100) {
       return res.status(400).json({
-        error: 'Password must be under 100 character'
+        error: 'Password must be under 100 characters'
       });
     }
     
@@ -594,11 +593,11 @@ app.put('/members/:id', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Full name is required' });
     }
     
-    if (email && email === 'none' && !validateEmail(email)) {
+    if (email && email !== 'none' && !validateEmail(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
     
-    if (phone && phone === 'none' && !validatePhone(phone)) {
+    if (phone && phone !== 'none' && !validatePhone(phone)) {
       return res.status(400).json({ error: 'Invalid phone format' });
     }
     
@@ -1240,6 +1239,7 @@ process.on("uncaughtException", async (error) => {
 process.on("SIGTERM", async () => {
   console.log("SIGTERM, Shutting Down");
   server.close(async () => {
+    await prisma.$disconnect();
     process.exit(0);
   });
 });
