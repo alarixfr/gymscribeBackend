@@ -1,4 +1,5 @@
 import express from 'express';
+import os from 'os';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -7,6 +8,16 @@ import { PrismaClient } from '@prisma/client';
 import { createChallenge, verifySolution } from 'altcha-lib';
 
 dotenv.config();
+
+if (!process.env.JWT_SECRET) {
+  console.log('ENV: JWT SECRET MISSING');
+  process.exit(1);
+}
+
+if (!process.env.ALTCHA_SECRET) {
+  console.log('ENV: ALTCHA SECRET MISSING');
+  process.exit(1);
+}
 
 const ALTCHA_HMAC_KEY = process.env.ALTCHA_SECRET;
 const app = express();
@@ -921,7 +932,11 @@ app.delete('/storage/attendance', authMiddleware, async (req, res) => {
   }
 });
 
-app.get('/v1/gym', apiKeyMiddleware, async (req, res) => {
+app.get('/api/', (req, res) => {
+  
+});
+
+app.get('/api/v1/gym', apiKeyMiddleware, async (req, res) => {
   try {
     const gym = await prisma.gym.findUnique({
       where: {
@@ -950,7 +965,7 @@ app.get('/v1/gym', apiKeyMiddleware, async (req, res) => {
   }
 });
 
-app.get('/v1/members', apiKeyMiddleware, async (req, res) => {
+app.get('/api/v1/members', apiKeyMiddleware, async (req, res) => {
   try {
     const gym = await prisma.gym.findUnique({
       where: { userId: req.userId }
@@ -1019,6 +1034,7 @@ app.get('/v1/members', apiKeyMiddleware, async (req, res) => {
     });
     
     res.json({
+      success: true,
       membersCount: {
         all: members.length,
         active,
@@ -1035,7 +1051,7 @@ app.get('/v1/members', apiKeyMiddleware, async (req, res) => {
   }
 });
 
-app.get('/v1/attendance', apiKeyMiddleware, async (req, res) => {
+app.get('api/v1/attendance', apiKeyMiddleware, async (req, res) => {
   try {
     const gym = prisma.gym.findUnique({
       where: { userId: req.userId }
@@ -1106,14 +1122,47 @@ app.get('/stats', async (req, res) => {
     res.status(500).json({
       error: 'Failed to fetch stats',
       details: error.message
-    })
+    });
   }
 });
 
 app.get('/', (req, res) => {
-  res.json({
-    status: 'Gymscribe API v1'
-  });
+  try {
+    const uptime = process.uptime();
+    
+    res.json({
+      success: true,
+      name: 'Gymscribe API',
+      status: 'online',
+      version: 'v1',
+      routes: [
+        '/stats',
+        '/api?token=YOURTOKEN'
+      ],
+      system: {
+        uptime: `${Math.floor(uptime)}s`,
+        node: process.version,
+        platform: os.platform(),
+        cpu: os.cpus().length,
+        memory: {
+          used: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
+          total: Math.round(os.totalmem() / 1024 / 1024) + 'MB'
+        }
+      }
+    });
+  } catch (error) {
+    res.json({
+      success: true,
+      name: 'Gymscribe API',
+      status: 'online',
+      version: 'v1',
+      routes: [
+        '/stats',
+        '/api?token=YOURTOKEN'
+      ],
+      system: 'Failed to fetch system info'
+    });
+  }
 });
 
 const server = app.listen(PORT, () => {
