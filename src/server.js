@@ -1067,7 +1067,7 @@ app.get('/api/v1/members', apiKeyMiddleware, async (req, res) => {
   }
 });
 
-app.get('api/v1/attendance', apiKeyMiddleware, async (req, res) => {
+app.get('/api/v1/attendance', apiKeyMiddleware, async (req, res) => {
   try {
     const gym = prisma.gym.findUnique({
       where: { userId: req.userId }
