@@ -18,6 +18,68 @@ const CACHE_DURATION = 5 * 60 * 1000;
 let statsCache = null;
 let statsCacheTime = null;
 
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now - value.resetTime > 60000) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 10 * 60 * 1000);
+
+function rateLimit(options = {}) {
+  const {
+    windowsMs = 60 * 1000,
+    max = 100,
+    message = 'Too many requests, please try again later'
+  } = options;
+  
+  return (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    if (!rateLimitStore.has(ip)) {
+      rateLimitStore.set(ip, {
+        count: 1,
+        resetTime: now + windowsMs
+      });
+      return next();
+    }
+    
+    const record = rateLimitStore.get(ip);
+    
+    if (now > record.resetTime) {
+      rateLimitStore.set(ip, {
+        count: 1,
+        resetTime: now + windowsMs
+      });
+      return next();
+    }
+    
+    record.count++;
+    
+    if (record.count > max) {
+      const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+      
+      res.setHeader('Retry-After', RetryAfter);
+      res.setHeader('X-RateLimit-Limit', max);
+      res.setHeader('X-RateLimit-Remaining', 0);
+      res.setHeader('X-RateLimit-Reset', new Date(record.resetTime).toISOString());
+      
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        message,
+        retryAfter: `${retryAfter} seconds`
+      });
+    }
+    
+    res.setHeader('X-RateLimit-Limit', max);
+    res.setHeader('X-RateLimit-Remaining', max - record.count);
+    res.setHeader('X-RateLimit-Reset', new Date(record.resetTime).toISOString());
+    
+    next();
+  };
+}
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,6 +94,13 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+
+app.use(
+  rateLimit({
+    windowsMs: 60 * 1000,
+    max: 100
+  })
+);
 
 const sanitize = (str, maxLength = 100) => {
   if (!str || str === 'none') return 'none';
