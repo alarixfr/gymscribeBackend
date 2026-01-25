@@ -933,7 +933,23 @@ app.delete('/storage/attendance', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/', (req, res) => {
-  
+  try {
+    res.json({
+      success: true,
+      routes: {
+        v1: [
+          '/api/v1/gym?token=YOURTOKEN',
+          '/api/v1/members?token=YOURTOKEN',
+          '/api/v1/attendance?token=YOURTOKEN'
+        ]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch api routes',
+      details: error.message
+    });
+  }
 });
 
 app.get('/api/v1/gym', apiKeyMiddleware, async (req, res) => {
@@ -1132,12 +1148,12 @@ app.get('/', (req, res) => {
     
     res.json({
       success: true,
-      name: 'Gymscribe API',
       status: 'online',
+      name: 'Gymscribe API',
       version: 'v1',
       routes: [
         '/stats',
-        '/api?token=YOURTOKEN'
+        '/api'
       ],
       system: {
         uptime: `${Math.floor(uptime)}s`,
@@ -1153,12 +1169,12 @@ app.get('/', (req, res) => {
   } catch (error) {
     res.json({
       success: true,
-      name: 'Gymscribe API',
       status: 'online',
+      name: 'Gymscribe API',
       version: 'v1',
       routes: [
         '/stats',
-        '/api?token=YOURTOKEN'
+        '/api'
       ],
       system: 'Failed to fetch system info'
     });
