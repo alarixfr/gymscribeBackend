@@ -72,7 +72,7 @@ function rateLimit(options = {}) {
     if (record.count > max) {
       const retryAfter = Math.ceil((record.resetTime - now) / 1000);
       
-      res.setHeader('Retry-After', RetryAfter);
+      res.setHeader('Retry-After', retryAfter);
       res.setHeader('X-RateLimit-Limit', max);
       res.setHeader('X-RateLimit-Remaining', 0);
       res.setHeader('X-RateLimit-Reset', new Date(record.resetTime).toISOString());
@@ -142,7 +142,13 @@ const validateAttendance = (data) => {
     if (
       !data[day] ||
       typeof data[day].attended !== 'number' ||
-      typeof data[day].absence !== 'number'
+      typeof data[day].absence !== 'number' ||
+      data[day].attended < 0 ||
+      data[day].absence < 0 ||
+      data[day].attended > 1000 ||
+      data[day].absence > 1000 ||
+      !Number.isInteger(data[day].attended) ||
+      !Number.isInteger(data[day].absence)
     ) {
       return false;
     }
@@ -530,11 +536,11 @@ app.post('/members', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid data' });
     }
     
-    if (email && email === 'none' && !validateEmail(email)) {
+    if (email && email !== 'none' && !validateEmail(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
     
-    if (phone && phone === 'none' && !validatePhone(phone)) {
+    if (phone && phone !== 'none' && !validatePhone(phone)) {
       return res.status(400).json({ error: 'Invalid phone format' });
     }
     
@@ -882,10 +888,44 @@ app.put('/storage/attendance', authMiddleware, async (req, res) => {
       });
     }
     
+    const allowedDays = [
+      'day1',
+      'day2',
+      'day3',
+      'day4',
+      'day5',
+      'day6',
+      'day7'
+    ]
+    
+    const providedDays = Object.keys(attendance);
+    const hasInvalidDays = providedDays.some(
+      (day) => !allowedDays.includes(day)
+    );
+    
+    if (hasInvalidDays) {
+      return res.status(400).json({
+        error: 'Invalid attendance data key'
+      });
+    }
+    
+    const sanitizedAttendance = {};
+    
+    for (const day of allowedDays) {
+      if (attendance[day]) {
+        sanitizedAttendance[day] = {
+          attended: Math.floor(attendance[day].attended),
+          absence: Math.floor(attendance[day].absence)
+        };
+      } else {
+        sanitizedAttendance[day] = { attended: 0, absence: 0 };
+      }
+    }
+    
     await prisma.gym.update({
       where: { userId: req.userId },
       data: {
-        attendanceHistory: JSON.stringify(attendance)
+        attendanceHistory: JSON.stringify(sanitizedAttendance)
       }
     });
     
@@ -1069,7 +1109,7 @@ app.get('/api/v1/members', apiKeyMiddleware, async (req, res) => {
 
 app.get('/api/v1/attendance', apiKeyMiddleware, async (req, res) => {
   try {
-    const gym = prisma.gym.findUnique({
+    const gym = await prisma.gym.findUnique({
       where: { userId: req.userId }
     });
     
