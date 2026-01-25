@@ -779,7 +779,7 @@ app.put('/storage/journals', authMiddleware, async (req, res) => {
   try {
     const { journals } = req.body;
     
-    if (!Array.isArray(journals)) {
+    if (!journals || !Array.isArray(journals)) {
       return res.status(400).json({ error: 'Journals must be an array' });
     }
     
