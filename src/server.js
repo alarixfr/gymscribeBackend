@@ -45,7 +45,14 @@ function rateLimit(options = {}) {
   } = options;
   
   return (req, res, next) => {
-    const ip = req.ip || req.connection.remoteAddress;
+    const ip = 
+      req.headers['x-forwaded-for']?.split(',')[0].trim() ||
+      req.headers['x-real-api'] ||
+      req.ip ||
+      req.connection.remoteAddress ||
+      req.socket?.remoteAddress ||
+      '0.0.0.0';
+      
     const now = Date.now();
     
     if (!rateLimitStore.has(ip)) {
