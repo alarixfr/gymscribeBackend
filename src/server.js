@@ -8,11 +8,16 @@ import { createChallenge, verifySolution } from 'altcha-lib';
 
 dotenv.config();
 
+const ALTCHA_HMAC_KEY = process.env.ALTCHA_SECRET;
 const app = express();
 const prisma = new PrismaClient();
 const PORT = 8080;
 
-const ALTCHA_HMAC_KEY = process.env.ALTCHA_SECRET;
+const rateLimitStore = new Map();
+const CACHE_DURATION = 5 * 60 * 1000;
+let statsCache = null;
+let statsCacheTime = null;
+
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -104,7 +109,7 @@ const authMiddleware = (req, res, next) => {
 };
 
 const apiKeyMiddleware = (req, res, next) => {
-  const token = res.params.token;
+  const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -847,15 +852,7 @@ app.delete('/storage/attendance', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/generate', authMiddleware, async (req, res) => {
-  
-});
-
-app.delete('/api/revoke', authMiddleware, async (req. res) => {
-  
-});
-
-app.get('/v1/gym/:token', apiKeyMiddleware, async (req, res) => {
+app.get('/v1/gym', apiKeyMiddleware, async (req, res) => {
   try {
     const gym = await prisma.gym.findUnique({
       where: {
@@ -868,6 +865,7 @@ app.get('/v1/gym/:token', apiKeyMiddleware, async (req, res) => {
     }
     
     res.json({
+      success: true,
       id: gym.id,
       name: gym.name,
       owner: gym.owner,
@@ -883,9 +881,83 @@ app.get('/v1/gym/:token', apiKeyMiddleware, async (req, res) => {
   }
 });
 
-app.get('/v1/members/:token', apiKeyMiddleware, async (req, res) => {
+app.get('/v1/members', apiKeyMiddleware, async (req, res) => {
   try {
+    const gym = await prisma.gym.findUnique({
+      where: { userId: req.userId }
+    });
     
+    if (!gym) return res.status(404).json({ error: 'Gym not found' });
+    
+    const timezone = gym.timezone || 'UTC';
+    const now = new Date();
+    const todayStr = new Date(
+      now.toLocaleString('en-US', { timeZone: timezone })
+    ).toISOString().split('T')[0];
+    
+    const members = await prisma.member.findMany({
+      where: { gymId: gym.id },
+      include: {
+        attendance: {
+          where: { date: new Date(todayStr) }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    let active = 0,
+        expired = 0,
+        expiresSoon = 0;
+        
+    const membersList = members.map(m => {
+      let status = 'active';
+      let daysLeft = null;
+      
+      if (m.plan !== 'lifetime' && m.expiryDate) {
+        const daysRemaining = Math.ceil(
+          (new Date(m.expiryDate) - now) / (1000 * 60 * 60 * 24)
+        );
+        daysLeft = daysRemaining;
+        
+        if (daysRemaining < 0) {
+          status = 'expired';
+          expired++;
+        } else if (daysRemaining <= 14) {
+          status = 'expiresSoon';
+          expiresSoon++;
+        } else {
+          active++;
+        }
+      } else {
+        active++;
+      }
+      
+      return {
+        id: m.id,
+        name: m.name,
+        plan: m.plan,
+        status,
+        duration: daysLeft,
+        isAttended: m.attendance.length > 0,
+        timestamp: m.createdAt,
+        details: {
+          email: m.email,
+          phone: m.phone,
+          birthday: m.birthday,
+          note: m.note
+        }
+      };
+    });
+    
+    res.json({
+      membersCount: {
+        all: members.length,
+        active,
+        expiresSoon,
+        expired
+      },
+      membersList
+    });
   } catch (error) {
     res.status(500).json({
       error: 'Failed to fetch members data',
@@ -894,7 +966,7 @@ app.get('/v1/members/:token', apiKeyMiddleware, async (req, res) => {
   }
 });
 
-app.get('/v1/attendance/:token', apiKeyMiddleware, async (req, res) => {
+app.get('/v1/attendance', apiKeyMiddleware, async (req, res) => {
   try {
     const gym = prisma.gym.findUnique({
       where: { userId: req.userId }
@@ -928,9 +1000,39 @@ app.get('/v1/attendance/:token', apiKeyMiddleware, async (req, res) => {
   }
 });
 
-app.get('/stats', authMiddleware, async (req, res) => {
+app.get('/stats', async (req, res) => {
   try {
+    const now = Date.now();
     
+    if (statsCache && statsCacheTime && (now - statsCacheTime) < CACHE_DURATION) {
+      return res.json({
+        ...statsCache,
+        cache: {
+          cached: true,
+          cacheAge: Math.floor((now - statsCacheTime) / 1000)
+        }
+      });
+    }
+    
+    const totalAccounts = await prisma.user.count();
+    const totalMembers = await prisma.member.count();
+    
+    const stats = {
+      totalAccounts,
+      totalMembers,
+      timestamp: new Date().toISOString()
+    };
+    
+    statsCache = stats;
+    statsCacheTime = now;
+    
+    res.json({
+      ...stats,
+      cache: {
+        cached: false,
+        cacheAge: null
+      }
+    });
   } catch (error) {
     res.status(500).json({
       error: 'Failed to fetch stats',
@@ -941,7 +1043,7 @@ app.get('/stats', authMiddleware, async (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({
-    status: 'Gymscribe API v0'
+    status: 'Gymscribe API v1'
   });
 });
 
