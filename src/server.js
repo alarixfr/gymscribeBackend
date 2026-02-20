@@ -1,5 +1,6 @@
 import express from 'express';
 import os from 'os';
+import dns from 'dns';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
@@ -1190,7 +1191,9 @@ app.get('/stats', async (req, res) => {
 
 app.get('/', (req, res) => {
   try {
+    const start = Date.now();
     const uptime = process.uptime();
+    const ip = req.socket.localAddress || req.ip;
     
     res.json({
       success: true,
@@ -1202,6 +1205,8 @@ app.get('/', (req, res) => {
         '/api'
       ],
       system: {
+        ip: `${ip}`,
+        ping: `${Date.now() - start}ms`;
         uptime: `${Math.floor(uptime)}s`,
         node: process.version,
         platform: os.platform(),

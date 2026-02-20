@@ -8,7 +8,7 @@ This is the backend for gymscribe, an open source gym membership management app
 https://github.com/alarixfr/gymscribe
 
 # HOW TO RUN THE SERVER
-NOTE: skip steps if you already done it on your device before
+A quick quide to download and run **Gymscribe** backend locally.
 
 ## Setup
 1. Install Node.js (https://nodejs.org/)
@@ -71,8 +71,6 @@ you can host this server locally or use a vps and edit the frontend to match the
 <p>This project was shipped in flavortown with total of 100 hours including the backend.</p>
 <a href="https://flavortown.hackclub.com/projects/32">https://flavortown.hackclub.com/projects/32</a>
 <hr>
-<img style="width:30%;" src="https://raw.githubusercontent.com/hackclub/flavortown/refs/heads/main/app/assets/images/orpheus_sprites/12.png" alt="Flavortown">
-<p style="font-size:2rem">Welcome! :&#41</p>
 <h2>If you are reviewing this project:</h2>
 <p>there are some stuff you might want to know,<p/>
 <ol>
