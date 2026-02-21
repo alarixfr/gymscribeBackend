@@ -92,7 +92,8 @@ router.get('/', authMiddleware, timezoneMiddleware, async (req, res) => {
 
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { fullname, email, phone, birthday, note, plans } = req.body;
+    const { fullname: rawFullname, email, phone, birthday, note, plans } = req.body;
+    const fullname = rawFullname?.trim();
     
     const gym = await prisma.gym.findUnique({ where: { userId: req.userId } });
     if (!gym) return res.status(404).json({ error: 'Gym not found' });
@@ -155,12 +156,17 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const memberId = req.params.id;
-    const { fullname, email, phone, birthday, note } = req.body;
+    const { fullname: rawFullname, email, phone, birthday, note } = req.body;
+    const fullname = rawFullname?.trim();
+    
+    if (!memberId || memberId.length > 36) {
+      return res.status(400).json({ error: 'Invalid member id' });
+    }
     
     const gym = await prisma.gym.findUnique({ where: { userId: req.userId } });
     if (!gym) return res.status(404).json({ error: 'Gym not found' });
     
-    if (!fullname || fullname.trim() === '') {
+    if (!fullname || fullname === '') {
       return res.status(400).json({ error: 'Full name is required' });
     }
     
@@ -206,6 +212,10 @@ router.post('/:id/renew', authMiddleware, async (req, res) => {
     const memberId = req.params.id;
     const { plan } = req.body;
     
+    if (!memberId || memberId.length > 36) {
+      return res.status(400).json({ error: 'Invalid member id' });
+    }
+    
     if (!['monthly', 'yearly', 'lifetime'].includes(plan)) {
       return res.status(400).json({ error: 'Invalid plan' });
     }
@@ -244,6 +254,10 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const memberId = req.params.id;
     
+    if (!memberId || memberId.length > 36) {
+      return res.status(400).json({ error: 'Invalid member id' });
+    }
+    
     const gym = await prisma.gym.findUnique({
       where: { userId: req.userId }
     });
@@ -270,6 +284,10 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 router.post('/:id/attendance', authMiddleware, timezoneMiddleware, async (req, res) => {
   try {
     const memberId = req.params.id;
+    
+    if (!memberId || memberId.length > 36) {
+      return res.status(400).json({ error: 'Invalid member id' });
+    }
     
     const gym = await prisma.gym.findUnique({
       where: { userId: req.userId }

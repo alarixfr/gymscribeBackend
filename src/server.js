@@ -19,12 +19,25 @@ if (!process.env.ALTCHA_SECRET) {
   process.exit(1);
 }
 
+if (!process.env.DATABASE_URL) {
+  console.log('ENV: DATABASE SECRET MISSING');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = 8080;
 const serverVersion = 'v1';
 
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(compression());
+
+app.use((req, res, next) => {
+  if (['POST', 'PUT'].includes(req.method) && !req.is('application/json')) {
+    return res.status(415).json({ error: 'Content-Type must be application/json' });
+  }
+  
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -42,6 +55,12 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
+  
+  next();
+});
+
+app.use((req, res, next) => {
+  res.set('X-API-Version', serverVersion);
   
   next();
 });

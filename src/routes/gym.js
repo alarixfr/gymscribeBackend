@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Prisma } from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { sanitize } from '../utils/sanitize.js';
 
@@ -24,7 +24,18 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.put('/', authMiddleware, async (req, res) => {
   try {
-    const { name, owner, description, address, timezone } = req.body;
+    const {
+      name: rawName,
+      owner: rawOwner,
+      description: rawDescription,
+      address: rawAddress,
+      timezone
+    } = req.body;
+    
+    const name = rawName?.trim();
+    const owner = rawOwner?.trim();
+    const description = rawDescription?.trim();
+    const address = rawAddress?.trim();
     
     await prisma.gym.update({
       where: { userId: req.userId },

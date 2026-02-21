@@ -2,16 +2,22 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createChallenge, verifySolution } from 'altcha-lib';
-import { Prisma } from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { validateEmail } from '../utils/validate.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 
 const ALTCHA_HMAC_KEY = process.env.ALTCHA_SECRET;
 
 const router = Router();
 
-router.get('/challenge', async (req, res) => {
+const authLimiter = rateLimit({ windowsMs: 60 * 1000, max: 10, message: 'Too many attempts' });
+
+router.get('/challenge', authLimiter, async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store');
+    res.set('Pragma', 'no-cache');
+    
     const challenge = await createChallenge({
       hmacKey: ALTCHA_HMAC_KEY,
       maxNumber: 100000,
@@ -31,9 +37,12 @@ router.get('/challenge', async (req, res) => {
   }
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   try {
-    const { email, password, altchaPayload } = req.body;
+    res.set('Cache-Control', 'no-store');
+    
+    const { password, altchaPayload } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
     
     if (!altchaPayload) {
       return res.status(400).json({ error: 'Captcha required' });
@@ -50,6 +59,10 @@ router.post('/register', async (req, res) => {
     
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    
+    if (password.length > 50) {
+      return res.status(400).json({ error: 'Password must be under 50 characters' });
     }
     
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -92,9 +105,12 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
-    const { email, password, altchaPayload } = req.body;
+    res.set('Cache-Control', 'no-store');
+    
+    const { password, altchaPayload } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
     
     if (!altchaPayload) {
       return res.status(400).json({ error: 'Captcha required' });
@@ -135,8 +151,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/change-password', authMiddleware, async (req, res) => {
+router.post('/change-password', authLimiter, authMiddleware, async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store');
+    
     const { currentPassword, newPassword } = req.body;
     
     if (!currentPassword || !newPassword) {
@@ -151,9 +169,9 @@ router.post('/change-password', authMiddleware, async (req, res) => {
       });
     }
     
-    if (newPassword.length > 100) {
+    if (newPassword.length > 50) {
       return res.status(400).json({
-        error: 'Password must be under 100 characters'
+        error: 'Password must be under 50 characters'
       });
     }
     
