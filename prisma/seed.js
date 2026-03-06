@@ -10,6 +10,15 @@ async function main() {
     create: {
       email: "gymscribe@gymscribe.gymscribe",
       password: await bcrypt.hash("gymscribe", 10),
+      gym: {
+        create: {
+          name: "Gymscribe Demo",
+          owner: "Gymscribe",
+          description: "Demo account",
+          address: "none",
+          timezone: "UTC",
+        },
+      },
     },
   });
 
