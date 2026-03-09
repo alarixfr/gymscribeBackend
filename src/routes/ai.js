@@ -12,7 +12,7 @@ const chatLimiter = rateLimit({
   message: "Rate limit reached at 5 request/10 minutes",
 });
 
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", authMiddleware, chatLimiter, async (req, res) => {
   try {
     const { message } = req.body;
     
