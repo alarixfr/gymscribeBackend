@@ -25,6 +25,11 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+if (!process.env.GROQ_KEY) {
+  console.log("ENV: GROQ KEY MISSING");
+  process.exit(1);
+}
+
 const app = express();
 const PORT = 8080;
 const serverVersion = "v1";

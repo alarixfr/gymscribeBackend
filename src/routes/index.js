@@ -5,6 +5,7 @@ import membersRoutes from "./members.js";
 import storageRoutes from "./storage.js";
 import apiRoutes from "./api.js";
 import statsRoutes from "./stats.js";
+import aiRoutes from "./ai.js";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use("/members", membersRoutes);
 router.use("/storage", storageRoutes);
 router.use("/api", apiRoutes);
 router.use("/stats", statsRoutes);
+router.use("/ai", aiRoutes);
 
 export default router;
