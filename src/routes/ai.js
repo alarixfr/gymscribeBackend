@@ -1,9 +1,16 @@
 import { Router } from 'express';
 import { Groq } from 'groq-sdk';
 import { authMiddleware } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 
 const router = Router();
 const groq = new Groq();
+
+const chatLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: "Rate limit reached at 5 request/10 minutes",
+});
 
 router.post("/", authMiddleware, async (req, res) => {
   try {
