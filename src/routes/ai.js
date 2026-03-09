@@ -7,9 +7,9 @@ const router = Router();
 const groq = new Groq();
 
 const chatLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 5,
-  message: "Rate limit reached at 5 request/10 minutes",
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  message: "Rate limit reached at 10 request/5 minutes",
 });
 
 router.post("/", authMiddleware, chatLimiter, async (req, res) => {
