@@ -25,8 +25,8 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-if (!process.env.GROQ_KEY) {
-  console.log("ENV: GROQ KEY MISSING");
+if (!process.env.GROQ_API_KEY) {
+  console.log("ENV: GROQ API KEY MISSING");
   process.exit(1);
 }
 
